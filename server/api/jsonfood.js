@@ -1,26 +1,37 @@
-import { promises as fs } from "fs";
-import { join } from "path";
-import { getQuery } from "h3";
+import { Storage } from "@google-cloud/storage";
+import { getQuery, readBody } from "h3";
 
-const filePath = join(process.cwd(), "json", "jsonfood.json");
+const storage = new Storage({
+  // 如果在本地用金鑰檔，請設定 keyFilename 或用環境變數 GOOGLE_APPLICATION_CREDENTIALS
+  // keyFilename: "./path-to-your-service-account.json",
+});
+
+const bucketName = "tsaopaofenghsiung2025";
+const fileName = "jsonfood.json";
+
+// 讀取 JSON 陣列
+async function readData() {
+  try {
+    const [contents] = await storage
+      .bucket(bucketName)
+      .file(fileName)
+      .download();
+    return JSON.parse(contents.toString("utf-8"));
+  } catch (err) {
+    // 如果檔案不存在或格式錯誤，回傳空陣列
+    return [];
+  }
+}
+
+// 寫入 JSON 陣列
+async function writeData(data) {
+  await storage
+    .bucket(bucketName)
+    .file(fileName)
+    .save(JSON.stringify(data, null, 2), { contentType: "application/json" });
+}
 
 export default defineEventHandler(async (event) => {
-  // 讀取檔案 JSON 陣列
-  async function readData() {
-    try {
-      const data = await fs.readFile(filePath, "utf-8");
-      return JSON.parse(data);
-    } catch {
-      // 檔案不存在或錯誤，回傳空陣列
-      return [];
-    }
-  }
-
-  // 寫入檔案 JSON 陣列
-  async function writeData(data) {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
-  }
-
   const method = event.req.method;
 
   if (method === "GET") {
@@ -28,7 +39,6 @@ export default defineEventHandler(async (event) => {
       const foodArray = await readData();
       const query = getQuery(event);
 
-      // 篩選資料
       const filtered = foodArray.filter((item) => {
         return (
           (!query.id || item.id === Number(query.id)) &&
@@ -46,7 +56,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (event.method === "POST") {
+  if (method === "POST") {
     try {
       const newItem = await readBody(event);
 
@@ -60,12 +70,10 @@ export default defineEventHandler(async (event) => {
         return { error: true, message: "欄位不完整" };
       }
 
-      const data = await fs.readFile(filePath, "utf-8");
-      const foodArray = JSON.parse(data);
+      const foodArray = await readData();
 
-      // 檢查 product 是否已存在
-      const exists = foodArray.some((item) => item.product === newItem.product);
-      if (exists) {
+      // 檢查 product 是否重複
+      if (foodArray.some((item) => item.product === newItem.product)) {
         return {
           error: true,
           message: `產品名稱 '${newItem.product}' 已存在，不能重複`,
@@ -76,15 +84,10 @@ export default defineEventHandler(async (event) => {
         (max, item) => (item.id > max ? item.id : max),
         0
       );
-
-      const itemToAdd = {
-        id: maxId + 1,
-        ...newItem,
-      };
+      const itemToAdd = { id: maxId + 1, ...newItem };
 
       foodArray.push(itemToAdd);
-
-      await fs.writeFile(filePath, JSON.stringify(foodArray, null, 2), "utf-8");
+      await writeData(foodArray);
 
       return { success: true, item: itemToAdd };
     } catch (err) {
@@ -95,6 +98,7 @@ export default defineEventHandler(async (event) => {
   if (method === "PUT") {
     try {
       const updatedItem = await readBody(event);
+
       if (!updatedItem.id) {
         return { error: true, message: "必須包含 id 欄位" };
       }
@@ -103,14 +107,15 @@ export default defineEventHandler(async (event) => {
       const index = foodArray.findIndex(
         (item) => item.id === Number(updatedItem.id)
       );
+
       if (index === -1) {
         return { error: true, message: "找不到對應的資料" };
       }
 
-      // PUT 一般是全部欄位都更新（但保留 id）
+      // PUT 是整筆更新（保留 id）
       foodArray[index] = { id: foodArray[index].id, ...updatedItem };
-
       await writeData(foodArray);
+
       return { success: true, item: foodArray[index] };
     } catch (err) {
       return { error: true, message: "更新失敗", detail: err.message };
@@ -120,6 +125,7 @@ export default defineEventHandler(async (event) => {
   if (method === "PATCH") {
     try {
       const updatedFields = await readBody(event);
+
       if (!updatedFields.id) {
         return { error: true, message: "必須包含 id 欄位" };
       }
@@ -128,18 +134,19 @@ export default defineEventHandler(async (event) => {
       const index = foodArray.findIndex(
         (item) => item.id === Number(updatedFields.id)
       );
+
       if (index === -1) {
         return { error: true, message: "找不到對應的資料" };
       }
 
-      // PATCH 部分更新，只更新提供的欄位，id 不可被改
+      // PATCH 部分更新，id 不可被改
       foodArray[index] = {
         ...foodArray[index],
         ...updatedFields,
         id: foodArray[index].id,
       };
-
       await writeData(foodArray);
+
       return { success: true, item: foodArray[index] };
     } catch (err) {
       return { error: true, message: "更新失敗", detail: err.message };
@@ -149,17 +156,18 @@ export default defineEventHandler(async (event) => {
   if (method === "DELETE") {
     try {
       const query = getQuery(event);
+
       if (!query.id) {
         return { error: true, message: "必須提供 id" };
       }
 
       const foodArray = await readData();
       const index = foodArray.findIndex((item) => item.id === Number(query.id));
+
       if (index === -1) {
         return { error: true, message: "找不到對應的資料" };
       }
 
-      // 刪除該筆資料
       const deletedItem = foodArray.splice(index, 1)[0];
       await writeData(foodArray);
 
