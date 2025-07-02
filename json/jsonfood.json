@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "product": "泰山純水",
+    "amount": 24,
+    "price": 280,
+    "shop": "大潤發",
+    "todate": "2025-12-31"
+  },
+  {
+    "id": 2,
+    "product": "黑松fin補給飲料",
+    "amount": 24,
+    "price": 171,
+    "shop": "大潤發",
+    "todate": "2025-12-31"
+  },
+  {
+    "id": 3,
+    "product": "悅氏Light鹼性水小曲線便利瓶",
+    "amount": 24,
+    "price": 175,
+    "shop": "大潤發",
+    "todate": "2025-12-31"
+  },
+  {
+    "id": 4,
+    "product": "舒跑運動飲料",
+    "amount": 24,
+    "price": 168,
+    "shop": "大潤發",
+    "todate": "2025-12-31"
+  },
+  {
+    "id": 5,
+    "product": "溏心蛋洋芋沙拉",
+    "amount": 1,
+    "price": 49,
+    "shop": "全家",
+    "todate": "2025-07-02"
+  },
+  {
+    "id": 6,
+    "product": "海藻野菜沙拉",
+    "amount": 1,
+    "price": 65,
+    "shop": "全家",
+    "todate": "2025-06-29"
+  },
+  {
+    "id": 7,
+    "product": "地震用礦泉水",
+    "amount": 1,
+    "price": 7,
+    "shop": "家裡",
+    "todate": "2025-07-05"
+  },
+  {
+    "id": 8,
+    "product": "地震用張君雅小妹妹",
+    "amount": 1,
+    "price": 25,
+    "shop": "家裡",
+    "todate": "2025-07-05"
+  },
+  {
+    "id": 9,
+    "product": "地震用巧克力",
+    "amount": 1,
+    "price": 29,
+    "shop": "家裡",
+    "todate": "2025-07-05"
+  },
+  {
+    "id": 10,
+    "product": "地震用洋蔥圈",
+    "amount": 18,
+    "price": 5,
+    "shop": "統一超商",
+    "todate": "2025-07-05"
+  }
+]
