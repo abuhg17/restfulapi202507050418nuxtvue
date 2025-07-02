@@ -4,24 +4,24 @@
     <table border="1" cellpadding="5" cellspacing="0">
       <thead>
         <tr>
-          <th>ID</th>
           <th>商品名稱</th>
           <th>數量</th>
           <th>價格</th>
           <th>店家</th>
           <th>有效日期</th>
           <th>操作</th>
+          <th>ID</th>
         </tr>
       </thead>
       <tbody>
         <!-- [修改 1] 改用 item.$id 作為 key 和顯示 -->
         <tr v-for="item in foods" :key="item.$id">
-          <td>{{ item.$id }}</td>
           <td>{{ item.product }}</td>
           <td>{{ item.amount }}</td>
           <td>{{ item.price }}</td>
           <td>{{ item.shop }}</td>
-          <td>{{ item.todate }}</td>
+          <td>{{ item.todate.slice(0, 10) }}</td>
+          <td>{{ item.$id.slice(-5) }}</td>
           <td>
             <button @click="startEdit(item)">編輯</button>
             <!-- [修改 2] 傳遞 item.$id 給刪除函式 -->
