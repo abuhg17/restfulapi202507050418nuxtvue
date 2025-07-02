@@ -4,40 +4,62 @@
     <table border="1" cellpadding="5" cellspacing="0">
       <thead>
         <tr>
-          <th>商品名稱</th>
-          <th>數量</th>
-          <th>價格</th>
-          <th>店家</th>
-          <th>有效日期</th>
+          <th
+            :class="{ active: sortKey === 'product' }"
+            @click="sortBy('product')"
+          >
+            商品名稱
+            {{ sortKey === "product" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
+          <th
+            :class="{ active: sortKey === 'amount' }"
+            @click="sortBy('amount')"
+          >
+            數量
+            {{ sortKey === "amount" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
+          <th :class="{ active: sortKey === 'price' }" @click="sortBy('price')">
+            價格
+            {{ sortKey === "price" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
+          <th :class="{ active: sortKey === 'shop' }" @click="sortBy('shop')">
+            店家
+            {{ sortKey === "shop" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
+          <th
+            :class="{ active: sortKey === 'todate' }"
+            @click="sortBy('todate')"
+          >
+            有效日期
+            {{ sortKey === "todate" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
           <th>操作</th>
-          <th>ID</th>
+          <th :class="{ active: sortKey === '$id' }" @click="sortBy('$id')">
+            ID {{ sortKey === "$id" ? (sortOrder === "asc" ? "▲" : "▼") : "" }}
+          </th>
         </tr>
       </thead>
       <tbody>
-        <!-- [修改 1] 改用 item.$id 作為 key 和顯示 -->
-        <tr v-for="item in foods" :key="item.$id">
+        <tr v-for="item in sortedFoods" :key="item.$id">
           <td>{{ item.product }}</td>
           <td>{{ item.amount }}</td>
           <td>{{ item.price }}</td>
           <td>{{ item.shop }}</td>
-          <td>{{ item.todate.slice(0, 10) }}</td>
-          <td>{{ item.$id.slice(-5) }}</td>
+          <td>{{ formatDate(item.todate) }}</td>
           <td>
             <button @click="startEdit(item)">編輯</button>
-            <!-- [修改 2] 傳遞 item.$id 給刪除函式 -->
             <button @click="deleteItem(item.$id)">刪除</button>
           </td>
+          <td>{{ item.$id.slice(-5) }}</td>
         </tr>
       </tbody>
     </table>
 
-    <!-- [修改 3] 顯示 editingItem.$id -->
     <h2 v-if="editingItem">編輯商品 (ID: {{ editingItem.$id }})</h2>
     <h2 v-else>新增商品</h2>
     <form @submit.prevent="submitForm">
       <div>
         <label>商品名稱: </label>
-        <!-- 在編輯模式下，商品名稱通常是關鍵欄位，不建議修改，所以 disabled 邏輯保留 -->
         <input v-model="form.product" :disabled="!!editingItem" required />
       </div>
       <div>
@@ -63,8 +85,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 
+// 狀態
 const foods = ref([]);
 const editingItem = ref(null);
 const form = ref({
@@ -75,7 +98,46 @@ const form = ref({
   todate: "",
 });
 
-// 取得列表 (無需修改)
+// 排序狀態
+const sortKey = ref("product");
+const sortOrder = ref("asc");
+
+function sortBy(key) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+  } else {
+    sortKey.value = key;
+    sortOrder.value = "asc";
+  }
+}
+
+// 排序後的 foods
+const sortedFoods = computed(() => {
+  return [...foods.value].sort((a, b) => {
+    const valA = a[sortKey.value];
+    const valB = b[sortKey.value];
+
+    if (typeof valA === "number" && typeof valB === "number") {
+      return sortOrder.value === "asc" ? valA - valB : valB - valA;
+    }
+
+    return sortOrder.value === "asc"
+      ? String(valA).localeCompare(String(valB))
+      : String(valB).localeCompare(String(valA));
+  });
+});
+
+// 日期格式化
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+// 取得資料
 async function fetchFoods() {
   try {
     const res = await fetch("/api/appwritefood");
@@ -91,10 +153,16 @@ onMounted(() => {
   fetchFoods();
 });
 
+// 編輯流程
 function startEdit(item) {
   editingItem.value = item;
-  // 使用 item.$id 而非 item.id
-  form.value = { ...item };
+  form.value = {
+    product: item.product,
+    amount: item.amount,
+    price: item.price,
+    shop: item.shop,
+    todate: item.todate,
+  };
 }
 
 function cancelEdit() {
@@ -108,13 +176,10 @@ function cancelEdit() {
   };
 }
 
+// 新增 / 更新
 async function submitForm() {
   if (editingItem.value) {
-    // --- 更新 (PATCH) ---
-    // [修改 4] 將 id 放在 URL query 中，並從 editingItem.value.$id 取得
     const documentId = editingItem.value.$id;
-
-    // 從 form.value 中移除 Appwrite 的系統欄位，只傳送要更新的資料
     const {
       $id,
       $collectionId,
@@ -128,7 +193,7 @@ async function submitForm() {
     const res = await fetch(`/api/appwritefood?id=${documentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updateData), // body 中不應包含 id
+      body: JSON.stringify(updateData),
     });
     const data = await res.json();
     if (data.success) {
@@ -139,7 +204,6 @@ async function submitForm() {
       alert("更新失敗：" + data.message);
     }
   } else {
-    // --- 新增 (POST) --- (無需修改)
     const res = await fetch("/api/appwritefood", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -149,16 +213,16 @@ async function submitForm() {
     if (data.success) {
       alert("新增成功");
       await fetchFoods();
-      cancelEdit(); // 使用 cancelEdit 重置表單更一致
+      cancelEdit();
     } else {
       alert("新增失敗：" + data.message);
     }
   }
 }
 
+// 刪除
 async function deleteItem(id) {
   if (!confirm(`確定要刪除 ID ${id} 嗎？`)) return;
-  // [修改 5] API URL 應為 /api/appwritefood
   const res = await fetch(`/api/appwritefood?id=${id}`, { method: "DELETE" });
   const data = await res.json();
   if (data.success) {
@@ -169,3 +233,17 @@ async function deleteItem(id) {
   }
 }
 </script>
+
+<style scoped>
+th.active {
+  background-color: #eef;
+  color: #003366;
+  font-weight: bold;
+}
+th {
+  cursor: pointer;
+}
+th:hover {
+  background-color: #f0f0f0;
+}
+</style>
