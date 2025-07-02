@@ -25,10 +25,18 @@ async function readData() {
 
 // 寫入 JSON 陣列
 async function writeData(data) {
-  await storage
-    .bucket(bucketName)
-    .file(fileName)
-    .save(JSON.stringify(data, null, 2), { contentType: "application/json" });
+  try {
+    const file = storage.bucket(bucketName).file(fileName);
+
+    await file.save(JSON.stringify(data, null, 2), {
+      contentType: "application/json",
+    });
+
+    await file.makePublic(); // 公開檔案
+    console.log("jsonfood.json 更新並已設為公開");
+  } catch (error) {
+    console.error("寫入或公開失敗:", error);
+  }
 }
 
 export default defineEventHandler(async (event) => {
